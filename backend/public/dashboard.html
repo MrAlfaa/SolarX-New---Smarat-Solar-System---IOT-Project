@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solar Tracker Dashboard</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <style>
+    :root {
+      --primary: #3498db;
+      --success: #2ecc71;
+      --danger: #e74c3c;
+      --warning: #f39c12;
+      --gray: #95a5a6;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f7fa;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #2c3e50;
+    }
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .panel {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    .panel-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      align-items: center;
+    }
+    .status-label {
+      font-weight: 500;
+    }
+    .status-value {
+      font-weight: bold;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .status-true {
+      background-color: rgba(46, 204, 113, 0.1);
+      color: var(--success);
+    }
+    .status-false {
+      background-color: rgba(231, 76, 60, 0.1);
+      color: var(--danger);
+    }
+    .timestamp {
+      font-size: 0.8em;
+      color: var(--gray);
+      text-align: right;
+      margin-top: 15px;
+    }
+    .control-button {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background-color 0.3s;
+    }
+    .control-button:hover {
+      background-color: #2980b9;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    .battery-container {
+      margin: 20px 0;
+    }
+    .battery-level {
+      width: 100%;
+      height: 30px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      position: relative;
+      overflow: hidden;
+    }
+    .battery-fill {
+      height: 100%;
+      background: linear-gradient(to right, var(--danger), var(--warning), var(--success));
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+    .battery-info {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Solar Tracker Dashboard</h1>
+  <div class="dashboard">
+    <!-- Relay Control Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Relay Control</div>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Relay 1:</span>
+        <span id="relay1-status" class="status-value">Loading...</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Relay 2:</span>
+        <span id="relay2-status" class="status-value">Loading...</span>
+      </div>
+      <div class="grid-2" style="margin-top: 15px;">
+        
+      </div>
+    </div>
+
+    <!-- System Status Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">System Status</div>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Search Status:</span>
+        <span id="search-status" class="status-value">Loading...</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Last Command:</span>
+        <span id="last-command" class="status-value">--</span>
+      </div>
+    </div>
+
+    <!-- Battery Status Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Battery Status</div>
+      </div>
+      <div class="battery-container">
+        <div class="battery-level">
+          <div id="battery-fill" class="battery-fill"></div>
+        </div>
+        <div class="battery-info">
+          <span id="battery-percentage">0%</span>
+          <span id="battery-voltage">Voltage: 0.00V</span>
+        </div>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Battery Health:</span>
+        <span id="battery-health" class="status-value">--</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="timestamp" id="last-updated">Last updated: --</div>
+
+  <script>
+    // Initialize Firebase with your config
+    const firebaseConfig = {
+      apiKey: "AIzaSyA38kewcVeaWIUsL9ZVLWIkwmB4sQ36Z3I",
+      authDomain: "sqa-assignment.firebaseapp.com",
+      databaseURL: "https://sqa-assignment-default-rtdb.firebaseio.com",
+      projectId: "sqa-assignment",
+      storageBucket: "sqa-assignment.firebasestorage.app",
+      messagingSenderId: "758570267479",
+      appId: "1:758570267479:web:83c823cdf03468584d0412",
+      measurementId: "G-WFBFZX0YTC"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    // Relay control functions
+    function toggleRelay(relayNumber) {
+      const relayStatus = document.getElementById(`relay${relayNumber}-status`);
+      const currentState = relayStatus.textContent === 'ON';
+      const newState = !currentState;
+      
+      // Update Firebase
+      database.ref(`status/system/Relay${relayNumber}`).set(newState)
+        .then(() => {
+          updateLastCommand(`Relay ${relayNumber} turned ${newState ? 'ON' : 'OFF'}`);
+        })
+        .catch(error => {
+          console.error('Error toggling relay:', error);
+        });
+    }
+
+    function updateLastCommand(command) {
+      const element = document.getElementById('last-command');
+      element.textContent = command;
+      element.className = 'status-value status-true';
+      setTimeout(() => {
+        element.className = 'status-value';
+      }, 2000);
+    }
+
+    // Listen for realtime updates
+    function setupRealtimeUpdates() {
+      const statusRef = database.ref('status/system');
+      
+      statusRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        const now = new Date();
+        
+        // Update relay statuses
+        if (data?.Relay1 !== undefined) {
+          const status = data.Relay1;
+          const element = document.getElementById('relay1-status');
+          element.textContent = status ? 'ON' : 'OFF';
+          element.className = `status-value status-${status}`;
+        }
+        
+        if (data?.Relay2 !== undefined) {
+          const status = data.Relay2;
+          const element = document.getElementById('relay2-status');
+          element.textContent = status ? 'ON' : 'OFF';
+          element.className = `status-value status-${status}`;
+        }
+        
+        // Update search status
+        if (data?.Search !== undefined) {
+          const status = data.Search;
+          const element = document.getElementById('search-status');
+          element.textContent = status ? 'ACTIVE' : 'INACTIVE';
+          element.className = `status-value status-${status}`;
+        }
+
+        // Update timestamp
+        document.getElementById('last-updated').textContent = 
+          `Last updated: ${now.toLocaleTimeString()}`;
+      });
+
+      // Listen for battery data if it exists in your DB
+      const batteryRef = database.ref('status/battery');
+      batteryRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const percentage = data.percentage || 0;
+          const voltage = data.voltage || 0;
+          
+          document.getElementById('battery-fill').style.width = `${percentage}%`;
+          document.getElementById('battery-percentage').textContent = `${percentage}%`;
+          document.getElementById('battery-voltage').textContent = `Voltage: ${voltage}V`;
+          
+          // Set battery health
+          const healthElement = document.getElementById('battery-health');
+          if (percentage > 70) {
+            healthElement.textContent = 'Good';
+            healthElement.className = 'status-value status-true';
+          } else if (percentage > 30) {
+            healthElement.textContent = 'Fair';
+            healthElement.className = 'status-value status-warning';
+          } else {
+            healthElement.textContent = 'Low';
+            healthElement.className = 'status-value status-false';
+          }
+        }
+      });
+    }
+
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+      setupRealtimeUpdates();
+      
+      // Add button event listeners
+      document.getElementById('relay1-toggle').addEventListener('click', () => toggleRelay(1));
+      document.getElementById('relay2-toggle').addEventListener('click', () => toggleRelay(2));
+    });
+  </script>
+</body>
+</html> 

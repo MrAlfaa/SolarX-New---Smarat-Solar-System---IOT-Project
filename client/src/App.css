@@ -1,0 +1,49 @@
+/* App specific styles that aren't easily done with Tailwind */
+#root {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/* Add any custom animations or complex styles here */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Ensure main content takes full width */
+.main-content {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Smooth transitions for sidebar */
+.sidebar-transition {
+  transition: width 0.2s ease-in-out;
+}
+
+.content-transition {
+  transition: margin-left 0.2s ease-in-out;
+}
+
+/* Ensure content containers adjust properly */
+.content-container {
+  width: 100%;
+  transition: width 0.2s ease-in-out;
+}

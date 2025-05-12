@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solar Tracker Control Panel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    .relay-label {
+      margin-right: 10px;
+      font-weight: bold;
+      color: #333;
+    }
+    
+    .relay-status {
+      display: inline-block;
+      width: 40px;
+      text-align: center;
+      font-weight: bold;
+      color: white;
+      padding: 2px 5px;
+      border-radius: 3px;
+      margin-left: 10px;
+    }
+    
+    .status-on {
+      background-color: #27ae60;
+    }
+    
+    .status-off {
+      background-color: #e74c3c;
+    }
+
+    .dashboard {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .panel {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 20px;
+    }
+
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    h2 {
+      color: #3498db;
+      margin-top: 0;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+
+    .relay-control {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding: 10px;
+      background-color: #f9f9f9;
+      border-radius: 5px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #2196F3;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    .data-container {
+      margin-top: 20px;
+    }
+
+    .data-item {
+      padding: 15px;
+      border-bottom: 1px solid #eee;
+      background-color: #f9f9f9;
+      margin-bottom: 10px;
+      border-radius: 5px;
+    }
+
+    .data-item:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    .timestamp {
+      color: #7f8c8d;
+      font-size: 0.9em;
+      margin-bottom: 5px;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    .status-online {
+      background-color: #2ecc71;
+    }
+
+    .status-offline {
+      background-color: #e74c3c;
+    }
+
+    .status-warning {
+      background-color: #f39c12;
+    }
+
+    .refresh-btn {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      float: right;
+      margin-top: -40px;
+    }
+
+    .refresh-btn:hover {
+      background-color: #2980b9;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+      
+      .panel {
+        padding: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Solar Tracker Control Panel</h1>
+  
+  <div class="dashboard">
+    <div class="panel control-panel">
+      <h2>Relay Control</h2>
+      <button id="refreshBtn" class="refresh-btn">Refresh Data</button>
+      
+      <div class="relay-control">
+        <span class="relay-label">Relay 1 (Bulb 1)</span>
+        <label class="switch">
+          <input type="checkbox" class="relay-switch" data-relay="1">
+          <span class="slider"></span>
+        </label>
+        <span class="relay-status status-off" id="relay1-status">OFF</span>
+      </div>
+      
+      <div class="relay-control">
+        <span class="relay-label">Relay 2 (Bulb 2)</span>
+        <label class="switch">
+          <input type="checkbox" class="relay-switch" data-relay="2">
+          <span class="slider"></span>
+        </label>
+        <span class="relay-status status-off" id="relay2-status">OFF</span>
+      </div>
+    
+    <div class="panel data-panel">
+      <h2>Telemetry Data</h2>
+      <div id="telemetry-data" class="data-container">
+        <div class="data-item">
+          <div class="timestamp">Loading data...</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="panel data-panel">
+      <h2>System Status</h2>
+      <div id="status-data" class="data-container">
+        <div class="data-item">
+          <div class="timestamp">Loading data...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Relay control
+// Update the relay switch event listener:
+document.querySelectorAll('.relay-switch').forEach(switchElement => {
+  switchElement.addEventListener('change', function() {
+    const relayNumber = this.dataset.relay;
+    const state = this.checked;
+    
+    fetch('/api/relay/control', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        relayNumber: parseInt(relayNumber),
+        state: state
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log('Success:', data);
+      showAlert(`Relay ${relayNumber} turned ${state ? 'ON' : 'OFF'}`, 'success');
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      showAlert('Failed to control relay', 'error');
+      this.checked = !state; // Revert switch if error
+    });
+  });
+});
+
+      // Refresh button
+      document.getElementById('refreshBtn').addEventListener('click', function() {
+        loadTelemetryData();
+        loadStatusData();
+        showAlert('Data refreshed', 'success');
+      });
+
+      // Load initial data
+      loadTelemetryData();
+      loadStatusData();
+
+      // Set up periodic refresh (every 5 seconds)
+      setInterval(() => {
+        loadTelemetryData();
+        loadStatusData();
+      }, 5000);
+    });
+
+    function loadTelemetryData() {
+      fetch('/api/data/telemetry')
+        .then(response => response.json())
+        .then(data => {
+          const container = document.getElementById('telemetry-data');
+          
+          if (data.length === 0) {
+            container.innerHTML = '<div class="data-item">No telemetry data available</div>';
+            return;
+          }
+          
+          container.innerHTML = '';
+          
+          data.slice(0, 5).forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'data-item';
+            
+            try {
+              const telemetryData = JSON.parse(item.data);
+              div.innerHTML = `
+                <div class="timestamp">${new Date(item.created_at).toLocaleString()}</div>
+                <div><strong>Voltage:</strong> ${telemetryData.voltage || 'N/A'}V</div>
+                <div><strong>Current:</strong> ${telemetryData.current || 'N/A'}A</div>
+                <div><strong>Temperature:</strong> ${telemetryData.temperature || 'N/A'}°C</div>
+                <div><strong>Solar Intensity:</strong> ${telemetryData.intensity || 'N/A'}W/m²</div>
+              `;
+            } catch (e) {
+              div.innerHTML = `
+                <div class="timestamp">${new Date(item.created_at).toLocaleString()}</div>
+                <pre>${item.data}</pre>
+              `;
+            }
+            
+            container.appendChild(div);
+          });
+        })
+        .catch(error => {
+          console.error('Error loading telemetry:', error);
+          document.getElementById('telemetry-data').innerHTML = `
+            <div class="data-item">
+              <div>Error loading telemetry data</div>
+            </div>
+          `;
+        });
+    }
+
+    function loadStatusData() {
+      fetch('/api/data/status')
+        .then(response => response.json())
+        .then(data => {
+          const container = document.getElementById('status-data');
+          
+          if (data.length === 0) {
+            container.innerHTML = '<div class="data-item">No status data available</div>';
+            return;
+          }
+          
+          container.innerHTML = '';
+          
+          data.slice(0, 5).forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'data-item';
+            
+            const statusClass = item.status.toLowerCase().includes('error') ? 'status-offline' : 
+                              item.status.toLowerCase().includes('warning') ? 'status-warning' : 'status-online';
+            
+            div.innerHTML = `
+              <div class="timestamp">${new Date(item.created_at).toLocaleString()}</div>
+              <div>
+                <span class="status-indicator ${statusClass}"></span>
+                <strong>Status:</strong> ${item.status}
+              </div>
+              <div><strong>Message:</strong> ${item.message || 'No additional message'}</div>
+            `;
+            
+            container.appendChild(div);
+          });
+        })
+        .catch(error => {
+          console.error('Error loading status:', error);
+          document.getElementById('status-data').innerHTML = `
+            <div class="data-item">
+              <div>Error loading status data</div>
+            </div>
+          `;
+        });
+    }
+
+    function showAlert(message, type) {
+      const alert = document.createElement('div');
+      alert.className = `alert alert-${type}`;
+      alert.textContent = message;
+      alert.style.position = 'fixed';
+      alert.style.top = '20px';
+      alert.style.right = '20px';
+      alert.style.padding = '10px 20px';
+      alert.style.backgroundColor = type === 'success' ? '#2ecc71' : '#e74c3c';
+      alert.style.color = 'white';
+      alert.style.borderRadius = '4px';
+      alert.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+      alert.style.zIndex = '1000';
+      alert.style.animation = 'fadeIn 0.3s';
+      
+      document.body.appendChild(alert);
+      
+      setTimeout(() => {
+        alert.style.animation = 'fadeOut 0.3s';
+        setTimeout(() => {
+          document.body.removeChild(alert);
+        }, 300);
+      }, 3000);
+    }
+
+    // Add some simple animations
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes fadeOut {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-20px); }
+      }
+    `;
+    document.head.appendChild(style);
+  </script>
+</body>
+</html>
