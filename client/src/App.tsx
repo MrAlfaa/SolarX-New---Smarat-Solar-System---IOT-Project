@@ -14,10 +14,16 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
   const { isCollapsed } = useSidebar();
   
   return (
-    <div className="flex flex-col lg:flex-row w-full">
+    <div className="flex h-screen overflow-hidden">
       <Navigation />
-      <main className={`flex-1 p-4 md:p-8 mt-16 lg:mt-0 ${isCollapsed ? 'lg:ml-20' : 'lg:ml-64'} w-full overflow-auto transition-all duration-200 content-transition`}>
-        {children}
+      <main 
+        className={`flex-1 overflow-auto transition-all duration-200 ease-in-out ${
+          isCollapsed ? 'lg:ml-20' : 'lg:ml-64'
+        }`}
+      >
+        <div className="p-4 md:p-8 min-h-screen bg-gray-100">
+          {children}
+        </div>
       </main>
     </div>
   );
@@ -33,7 +39,7 @@ function App() {
     <AuthProvider>
       <SidebarProvider>
         <Router>
-          <div className="min-h-screen bg-gray-100 w-full">
+          <div className="min-h-screen">
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />

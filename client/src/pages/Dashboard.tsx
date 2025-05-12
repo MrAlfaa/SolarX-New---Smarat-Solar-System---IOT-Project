@@ -3,13 +3,6 @@ import { database } from "../firebase"; // adjust path as needed
 import { ref, onValue } from "firebase/database";
 import { useEffect, useState } from "react";
 
-
-
-
-
-
-
-
 const Dashboard = () => {
 
 
