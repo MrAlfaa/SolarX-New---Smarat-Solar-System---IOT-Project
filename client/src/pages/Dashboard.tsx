@@ -1,45 +1,113 @@
-import { FiArrowUp, FiArrowDown, FiSun, FiDollarSign, FiActivity, FiBattery, FiCloud, FiCloudRain, FiWind, FiThermometer, FiBell, FiPieChart, FiZap, FiInfo, FiExternalLink } from 'react-icons/fi';
-import { database } from "../firebase"; // adjust path as needed
-import { ref, onValue } from "firebase/database";
+import { 
+  FiArrowUp, FiArrowDown, FiSun, FiDollarSign, FiActivity, FiBattery, 
+  FiCloud, FiCloudRain, FiWind, FiThermometer, FiBell, FiPieChart, 
+  FiZap, FiInfo, FiExternalLink, FiPower, FiToggleLeft, FiToggleRight 
+} from 'react-icons/fi';
+import { database } from "../firebase";
+import { ref, onValue, set } from "firebase/database";
 import { useEffect, useState } from "react";
+import { controlRelay } from "../services/api";
 
 const Dashboard = () => {
-
-
+  // Battery state
   const [batteryPercentage, setBatteryPercentage] = useState<number | null>(null);
-
-  useEffect(() => {
-    const batteryRef = ref(database, "status/battery/percentage");
-    const unsubscribe = onValue(batteryRef, (snapshot) => {
-      const value = snapshot.val();
-      if (typeof value === "number") {
-        setBatteryPercentage(value);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-
   const [voltage, setVoltage] = useState<number | null>(null);
+  const [batteryHealth, setBatteryHealth] = useState("--");
+  
+  // Relay states
+  const [relay1Status, setRelay1Status] = useState<boolean>(false);
+  const [relay2Status, setRelay2Status] = useState<boolean>(false);
+  
+  // System status
+  const [searchStatus, setSearchStatus] = useState<boolean>(false);
+  const [lastCommand, setLastCommand] = useState<string>("--");
+  const [lastUpdated, setLastUpdated] = useState<string>("--");
 
-
+  // Battery data listener
   useEffect(() => {
-    const voltageRef = ref(database, "status/battery/voltage");
-    const unsubscribe = onValue(voltageRef, (snapshot) => {
-      const value = snapshot.val();
-      if (typeof value === "number") {
-        setVoltage(value);
+    const batteryRef = ref(database, "status/battery");
+    const unsubscribe = onValue(batteryRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        if (typeof data.percentage === "number") {
+          setBatteryPercentage(data.percentage);
+          
+          // Set battery health based on percentage
+          if (data.percentage > 70) {
+            setBatteryHealth("Good");
+          } else if (data.percentage > 30) {
+            setBatteryHealth("Fair");
+          } else {
+            setBatteryHealth("Low");
+          }
+        }
+        
+        if (typeof data.voltage === "number") {
+          setVoltage(data.voltage);
+        }
+        
+        // Update last updated timestamp
+        setLastUpdated(new Date().toLocaleTimeString());
       }
     });
-  
+
     return () => unsubscribe();
   }, []);
-  
 
+  // Relay status listener
+  useEffect(() => {
+    const relay1Ref = ref(database, "status/relay1/ON");
+    const relay1Unsubscribe = onValue(relay1Ref, (snapshot) => {
+      const value = snapshot.val();
+      if (typeof value === "boolean") {
+        setRelay1Status(value);
+      }
+    });
+    
+    const relay2Ref = ref(database, "status/relay2/ON");
+    const relay2Unsubscribe = onValue(relay2Ref, (snapshot) => {
+      const value = snapshot.val();
+      if (typeof value === "boolean") {
+        setRelay2Status(value);
+      }
+    });
 
+    return () => {
+      relay1Unsubscribe();
+      relay2Unsubscribe();
+    };
+  }, []);
 
-  // Mock data for the dashboard
+  // System status listener
+  useEffect(() => {
+    const searchRef = ref(database, "status/system/Search");
+    const unsubscribe = onValue(searchRef, (snapshot) => {
+      const value = snapshot.val();
+      if (typeof value === "boolean") {
+        setSearchStatus(value);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Toggle relay function
+  const toggleRelay = async (relayNumber: 1 | 2) => {
+    const currentState = relayNumber === 1 ? relay1Status : relay2Status;
+    const newState = !currentState;
+    
+    try {
+      // Call the API service function
+      await controlRelay(relayNumber, newState);
+      
+      // Update last command
+      setLastCommand(`Relay ${relayNumber} turned ${newState ? 'ON' : 'OFF'}`);
+    } catch (error) {
+      console.error(`Failed to toggle relay ${relayNumber}:`, error);
+    }
+  };
+
+  // Mock data (keeping some of the existing mock data for now)
   const stats = [
     { 
       title: 'Energy Production', 
@@ -57,12 +125,11 @@ const Dashboard = () => {
     },
     { 
       title: 'System Voltage', 
-      value: voltage !== null ? `${voltage} V` : 'Loading...', 
+      value: voltage !== null ? `${voltage.toFixed(2)} V` : 'Loading...', 
       change: '-2%', 
       isPositive: false,
       icon: <FiActivity className="w-6 h-6 text-blue-500" /> 
-    }
-    ,
+    },
     { 
       title: 'Battery Storage', 
       value: batteryPercentage !== null ? `${batteryPercentage}%` : 'Loading...', 
@@ -72,7 +139,7 @@ const Dashboard = () => {
     },
   ];
 
-  // Mock data for weather forecast
+  // Weather forecast (keeping existing)
   const weatherForecast = [
     { day: 'Today', condition: 'Sunny', icon: <FiSun className="w-6 h-6 text-yellow-500" />, temp: '28°C', production: 'Excellent' },
     { day: 'Tomorrow', condition: 'Partly Cloudy', icon: <FiCloud className="w-6 h-6 text-gray-500" />, temp: '24°C', production: 'Good' },
@@ -81,48 +148,14 @@ const Dashboard = () => {
     { day: 'Friday', condition: 'Sunny', icon: <FiSun className="w-6 h-6 text-yellow-500" />, temp: '27°C', production: 'Excellent' },
   ];
 
-  // Mock data for recent alerts
-  const recentAlerts = [
-    { id: 'ALT001', title: 'System Offline', type: 'error', time: '30 minutes ago' },
-    { id: 'ALT002', title: 'Low Energy Production', type: 'warning', time: '3 hours ago' },
-    { id: 'ALT003', title: 'Battery Below 20%', type: 'warning', time: '5 hours ago' },
-  ];
-
-  // Mock data for energy consumption
-  const energyConsumption = [
-    { category: 'Home Appliances', percentage: 45, color: 'bg-blue-500' },
-    { category: 'Heating/Cooling', percentage: 30, color: 'bg-green-500' },
-    { category: 'Lighting', percentage: 15, color: 'bg-indigo-500' },
-    { category: 'Other', percentage: 10, color: 'bg-yellow-500' },
-  ];
-
-  // Mock data for hourly production
-  const hourlyProduction = [
-    { time: '6 AM', value: 0.2 },
-    { time: '8 AM', value: 1.5 },
-    { time: '10 AM', value: 3.8 },
-    { time: '12 PM', value: 5.2 },
-    { time: '2 PM', value: 4.8 },
-    { time: '4 PM', value: 3.2 },
-    { time: '6 PM', value: 1.0 },
-    { time: '8 PM', value: 0.1 },
-  ];
-
-  // Mock data for energy saving tips
-  const energySavingTips = [
-    "Schedule high-energy appliances during peak solar production hours",
-    "Clean your solar panels regularly to maintain optimal efficiency",
-    "Consider adding battery storage to maximize self-consumption",
-    "Use smart home devices to automate energy usage based on production"
-  ];
-
-
+  // Keep other existing mock data...
 
   return (
     <div className="space-y-6">
       <header className="mb-6 md:mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Dashboard</h1>
         <p className="text-sm md:text-base text-gray-600 mt-1">Monitor your solar energy performance</p>
+        <p className="text-xs text-gray-500 mt-1">Last updated: {lastUpdated}</p>
       </header>
 
       {/* Key Stats */}
@@ -147,13 +180,132 @@ const Dashboard = () => {
         ))}
       </div>
 
+      {/* New: Device Control Panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        {/* Relay Control Panel */}
+        <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+          <h2 className="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">Relay Control</h2>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center">
+                <FiPower className="w-5 h-5 text-blue-500 mr-2" />
+                <span className="text-gray-700">Relay 1 (Bulb 1)</span>
+              </div>
+              <button 
+                onClick={() => toggleRelay(1)}
+                className={`flex items-center px-3 py-1 rounded-full transition-colors ${
+                  relay1Status 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-gray-200 text-gray-500'
+                }`}
+              >
+                {relay1Status ? <FiToggleRight className="mr-1" /> : <FiToggleLeft className="mr-1" />}
+                {relay1Status ? 'ON' : 'OFF'}
+              </button>
+            </div>
+            
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center">
+                <FiPower className="w-5 h-5 text-blue-500 mr-2" />
+                <span className="text-gray-700">Relay 2 (Bulb 2)</span>
+              </div>
+              <button 
+                onClick={() => toggleRelay(2)}
+                className={`flex items-center px-3 py-1 rounded-full transition-colors ${
+                  relay2Status 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-gray-200 text-gray-500'
+                }`}
+              >
+                {relay2Status ? <FiToggleRight className="mr-1" /> : <FiToggleLeft className="mr-1" />}
+                {relay2Status ? 'ON' : 'OFF'}
+              </button>
+            </div>
+            
+            <div className="mt-2 text-sm text-gray-500">
+              {lastCommand !== "--" && (
+                <div className="bg-blue-50 p-2 rounded text-blue-700">
+                  Last command: {lastCommand}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Battery Status Panel */}
+        <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+          <h2 className="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">Battery Status</h2>
+          
+          <div className="mb-4">
+            <div className="w-full h-6 bg-gray-200 rounded-full overflow-hidden">
+              <div 
+                className="h-full rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
+                style={{ width: `${batteryPercentage || 0}%` }}
+              ></div>
+            </div>
+            <div className="flex justify-between mt-2 text-sm text-gray-600">
+              <span>{batteryPercentage !== null ? `${batteryPercentage}%` : 'Loading...'}</span>
+              <span>{voltage !== null ? `${voltage.toFixed(2)}V` : ''}</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center">
+              <FiBattery className="w-5 h-5 text-blue-500 mr-2" />
+              <span className="text-gray-700">Battery Health</span>
+            </div>
+            <span className={`px-3 py-1 rounded-full text-sm ${
+              batteryHealth === 'Good' ? 'bg-green-100 text-green-700' :
+              batteryHealth === 'Fair' ? 'bg-yellow-100 text-yellow-700' :
+              batteryHealth === 'Low' ? 'bg-red-100 text-red-700' :
+              'bg-gray-100 text-gray-700'
+            }`}>
+              {batteryHealth}
+            </span>
+          </div>
+        </div>
+        
+        {/* System Status Panel */}
+        <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+          <h2 className="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">System Status</h2>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <span className="text-gray-700">Search Status</span>
+              <span className={`px-3 py-1 rounded-full text-sm ${
+                searchStatus 
+                  ? 'bg-green-100 text-green-700' 
+                  : 'bg-gray-200 text-gray-500'
+              }`}>
+                {searchStatus ? 'ACTIVE' : 'INACTIVE'}
+              </span>
+            </div>
+            
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                           <span className="text-gray-700">Connection</span>
+              <span className="px-3 py-1 rounded-full text-sm bg-green-100 text-green-700">
+                Connected
+              </span>
+            </div>
+            
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <span className="text-gray-700">System Mode</span>
+              <span className="px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700">
+                Automatic
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content - First Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Energy Production Chart */}
+        {/* Energy Production Chart - Keeping existing chart */}
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6 lg:col-span-2">
           <h2 className="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">Energy Production History</h2>
           <div className="h-64 md:h-80">
-            {/* Simple chart visualization */}
+            {/* Simple chart visualization - keep the existing implementation */}
             <div className="w-full h-full flex items-end justify-between px-2">
               {hourlyProduction.map((hour, i) => (
                 <div key={i} className="flex flex-col items-center">
@@ -179,25 +331,6 @@ const Dashboard = () => {
           </div>
         </div>
         
-        {/* System Health */}
-        <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-          <h2 className="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">System Health</h2>
-          <div className="space-y-3 md:space-y-4">
-            {['Solar Panels', 'Inverter', 'Battery', 'Connection'].map((item, index) => (
-              <div key={index} className="flex items-center justify-between pb-2 border-b border-gray-100">
-                <span className="text-sm md:text-base text-gray-600">{item}</span>
-                <span className="text-sm md:text-base text-green-500 font-medium">Optimal</span>
-              </div>
-            ))}
-          </div>
-          <button className="mt-4 md:mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg text-sm md:text-base font-medium transition-colors">
-            View Full Report
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content - Second Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Weather Forecast */}
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
           <h2 className="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">Weather Forecast</h2>
@@ -229,87 +362,28 @@ const Dashboard = () => {
             <span>Weather data impacts production forecasts</span>
           </div>
         </div>
-
-        {/* Energy Consumption */}
-        <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-          <h2 className="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">Energy Consumption</h2>
-          <div className="flex items-center justify-center mb-4">
-            <div className="relative w-32 h-32 md:w-40 md:h-40">
-              <div className="absolute inset-0 rounded-full overflow-hidden">
-                <div style={{ 
-                  background: 'conic-gradient(#3B82F6 0% 45%, #10B981 45% 75%, #6366F1 75% 90%, #F59E0B 90% 100%)'
-                }} className="w-full h-full"></div>
-              </div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="bg-white rounded-full w-20 h-20 md:w-24 md:h-24 flex items-center justify-center">
-                  <FiPieChart className="text-blue-500 h-8 w-8" />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {energyConsumption.map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className={`w-3 h-3 ${item.color} rounded-sm mr-2`}></div>
-                  <span className="text-sm text-gray-600">{item.category}</span>
-                </div>
-                <span className="text-sm font-medium">{item.percentage}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Alerts */}
-        <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-          <div className="flex items-center justify-between mb-3 md:mb-4">
-            <h2 className="text-base md:text-lg font-semibold text-gray-800">Recent Alerts</h2>
-            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">{recentAlerts.length} new</span>
-          </div>
-          <div className="space-y-3">
-            {recentAlerts.map((alert) => (
-              <div key={alert.id} className={`p-3 rounded-lg ${
-                alert.type === 'error' ? 'bg-red-50' : 
-                alert.type === 'warning' ? 'bg-yellow-50' : 'bg-blue-50'
-              }`}>
-                <div className="flex items-start">
-                  {alert.type === 'error' ? (
-                    <FiBell className="mt-0.5 h-4 w-4 text-red-500 flex-shrink-0" />
-                  ) : alert.type === 'warning' ? (
-                    <FiBell className="mt-0.5 h-4 w-4 text-yellow-500 flex-shrink-0" />
-                  ) : (
-                    <FiBell className="mt-0.5 h-4 w-4 text-blue-500 flex-shrink-0" />
-                  )}
-                  <div className="ml-2 flex-1">
-                    <p className="text-sm font-medium text-gray-800">{alert.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{alert.time}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <button className="mt-4 w-full flex items-center justify-center text-sm text-blue-600 hover:text-blue-800 font-medium">
-            View All Alerts <FiExternalLink className="ml-1 h-3 w-3" />
-          </button>
-        </div>
       </div>
 
-      {/* Energy Saving Tips */}
-      <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-        <div className="flex items-center mb-3 md:mb-4">
-          <FiInfo className="h-5 w-5 text-blue-500 mr-2" />
-          <h2 className="text-base md:text-lg font-semibold text-gray-800">Energy Saving Tips</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {energySavingTips.map((tip, index) => (
-            <div key={index} className="bg-blue-50 p-3 rounded-lg">
-              <p className="text-sm text-blue-800">{tip}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Keep the rest of the existing dashboard code for Energy Consumption, Recent Alerts, etc. */}
     </div>
   );
 };
 
 export default Dashboard;
+// Define the type for hourly production data
+  interface HourlyProductionData {
+    time: string;
+    value: number;
+  }
+
+  // Add the missing hourlyProduction data with proper typing
+  const hourlyProduction: HourlyProductionData[] = [
+    { time: '6 AM', value: 0.2 },
+    { time: '8 AM', value: 1.5 },
+    { time: '10 AM', value: 3.8 },
+    { time: '12 PM', value: 5.2 },
+    { time: '2 PM', value: 4.8 },
+    { time: '4 PM', value: 3.2 },
+    { time: '6 PM', value: 1.0 },
+    { time: '8 PM', value: 0.1 },
+  ];

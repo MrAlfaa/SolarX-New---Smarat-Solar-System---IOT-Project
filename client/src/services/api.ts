@@ -83,8 +83,8 @@ export const controlRelay = async (relayNumber: number, state: boolean): Promise
     const relayRef = ref(database, `status/relay${relayNumber}/ON`);
     await set(relayRef, state);
     
-    // Then try to call the API
-    const response = await fetch('/api/relay/control', {
+    // Then try to call the API, but don't wait for the response before updating the UI
+    fetch('/api/relay/control', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -93,15 +93,13 @@ export const controlRelay = async (relayNumber: number, state: boolean): Promise
         relayNumber,
         state
       })
+    }).catch(err => {
+      console.error('Error calling relay control API:', err);
+      // We already updated Firebase, so UI should show the correct state
     });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to control relay: ${response.status} ${response.statusText}`);
-    }
   } catch (error) {
     console.error('Error controlling relay:', error);
-    // We don't need to throw the error since Firebase was already updated
-    // This prevents the UI from showing an error if only the API call fails
+    throw error;
   }
 };
 
