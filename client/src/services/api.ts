@@ -40,11 +40,11 @@ export const fetchDevices = async (): Promise<DeviceStatus[]> => {
     // Create devices array
     const devices: DeviceStatus[] = [];
     
-    // Add relay devices from Firebase
-    if (statusData?.relay1) {
+    // Add relay devices from Firebase ONLY if they have custom names
+    if (statusData?.relay1 && statusData.relay1.name) {
       devices.push({
         id: 'DEV001',
-        name: 'Relay 1 (Bulb 1)',
+        name: statusData.relay1.name,
         type: 'Relay',
         location: 'Control Panel',
         status: statusData.relay1.ON ? 'online' : 'offline',
@@ -53,10 +53,10 @@ export const fetchDevices = async (): Promise<DeviceStatus[]> => {
       });
     }
     
-    if (statusData?.relay2) {
+    if (statusData?.relay2 && statusData.relay2.name) {
       devices.push({
         id: 'DEV002',
-        name: 'Relay 2 (Bulb 2)',
+        name: statusData.relay2.name,
         type: 'Relay',
         location: 'Control Panel',
         status: statusData.relay2.ON ? 'online' : 'offline',
@@ -86,6 +86,62 @@ export const fetchDevices = async (): Promise<DeviceStatus[]> => {
     console.error('Error fetching devices:', error);
     throw error;
   }
+};
+
+// Similarly update the subscribeToDeviceUpdates function
+export const subscribeToDeviceUpdates = (callback: (devices: DeviceStatus[]) => void): (() => void) => {
+  const statusRef = ref(database, 'status');
+  
+  const unsubscribe = onValue(statusRef, (snapshot) => {
+    const statusData = snapshot.val();
+    const devices: DeviceStatus[] = [];
+    
+    console.log('Firebase status data updated:', statusData);
+    
+    // Only add relay devices that have custom names
+    if (statusData?.relay1 && statusData.relay1.name) {
+      devices.push({
+        id: 'DEV001',
+        name: statusData.relay1.name,
+        type: 'Relay',
+        location: 'Control Panel',
+        status: statusData.relay1.ON ? 'online' : 'offline',
+        lastSync: new Date().toISOString(),
+        data: { relay: 1, state: statusData.relay1.ON }
+      });
+    }
+    
+    if (statusData?.relay2 && statusData.relay2.name) {
+      devices.push({
+        id: 'DEV002',
+        name: statusData.relay2.name,
+        type: 'Relay',
+        location: 'Control Panel',
+        status: statusData.relay2.ON ? 'online' : 'offline',
+        lastSync: new Date().toISOString(),
+        data: { relay: 2, state: statusData.relay2.ON }
+      });
+    }
+    
+    if (statusData?.battery) {
+      devices.push({
+        id: 'DEV003',
+        name: 'Battery Pack',
+        type: 'Battery',
+        location: 'System',
+        status: 'online',
+        lastSync: statusData.battery.lastUpdated || new Date().toISOString(),
+        data: {
+          percentage: statusData.battery.percentage,
+          voltage: statusData.battery.voltage
+        }
+      });
+    }
+    
+    callback(devices);
+  });
+  
+  return unsubscribe;
 };
 
 // Control relay
@@ -132,62 +188,60 @@ export const fetchBatteryData = async () => {
     throw error;
   }
 };
-
-// Subscribe to real-time device updates
-export const subscribeToDeviceUpdates = (callback: (devices: DeviceStatus[]) => void): (() => void) => {
-  const statusRef = ref(database, 'status');
+  // export const subscribeToDeviceUpdates = (callback: (devices: DeviceStatus[]) => void): (() => void) => {
+  //   const statusRef = ref(database, 'status');
   
-  const unsubscribe = onValue(statusRef, (snapshot) => {
-    const statusData = snapshot.val();
-    const devices: DeviceStatus[] = [];
+  //   const unsubscribe = onValue(statusRef, (snapshot) => {
+  //     const statusData = snapshot.val();
+  //     const devices: DeviceStatus[] = [];
     
-    // Process the same way as fetchDevices
-    if (statusData?.relay1) {
-      devices.push({
-        id: 'DEV001',
-        name: 'Relay 1 (Bulb 1)',
-        type: 'Relay',
-        location: 'Control Panel',
-        status: statusData.relay1.ON ? 'online' : 'offline',
-        lastSync: new Date().toISOString(),
-        data: { relay: 1, state: statusData.relay1.ON }
-      });
-    }
+  //     console.log('Firebase status data updated:', statusData);
     
-    if (statusData?.relay2) {
-      devices.push({
-        id: 'DEV002',
-        name: 'Relay 2 (Bulb 2)',
-        type: 'Relay',
-        location: 'Control Panel',
-        status: statusData.relay2.ON ? 'online' : 'offline',
-        lastSync: new Date().toISOString(),
-        data: { relay: 2, state: statusData.relay2.ON }
-      });
-    }
+  //     // Only add relay devices that have custom names
+  //     if (statusData?.relay1 && statusData.relay1.name) {
+  //       devices.push({
+  //         id: 'DEV001',
+  //         name: statusData.relay1.name,
+  //         type: 'Relay',
+  //         location: 'Control Panel',
+  //         status: statusData.relay1.ON ? 'online' : 'offline',
+  //         lastSync: new Date().toISOString(),
+  //         data: { relay: 1, state: statusData.relay1.ON }
+  //       });
+  //     }
     
-    if (statusData?.battery) {
-      devices.push({
-        id: 'DEV003',
-        name: 'Battery Pack',
-        type: 'Battery',
-        location: 'System',
-        status: 'online',
-        lastSync: statusData.battery.lastUpdated || new Date().toISOString(),
-        data: {
-          percentage: statusData.battery.percentage,
-          voltage: statusData.battery.voltage
-        }
-      });
-    }
+  //     if (statusData?.relay2 && statusData.relay2.name) {
+  //       devices.push({
+  //         id: 'DEV002',
+  //         name: statusData.relay2.name,
+  //         type: 'Relay',
+  //         location: 'Control Panel',
+  //         status: statusData.relay2.ON ? 'online' : 'offline',
+  //         lastSync: new Date().toISOString(),
+  //         data: { relay: 2, state: statusData.relay2.ON }
+  //       });
+  //     }
     
-    callback(devices);
-  });
+  //     if (statusData?.battery) {
+  //       devices.push({
+  //         id: 'DEV003',
+  //         name: 'Battery Pack',
+  //         type: 'Battery',
+  //         location: 'System',
+  //         status: 'online',
+  //         lastSync: statusData.battery.lastUpdated || new Date().toISOString(),
+  //         data: {
+  //           percentage: statusData.battery.percentage,
+  //           voltage: statusData.battery.voltage
+  //         }
+  //       });
+  //     }
+    
+  //     callback(devices);
+  //   });
   
-  return unsubscribe;
-};
-
-// Get telemetry data
+  //   return unsubscribe;
+  // };
 export const fetchTelemetryData = async () => {
   try {
     const response = await fetch('/api/data/telemetry');
@@ -351,6 +405,95 @@ export const fetchHistoricalStatusData = async (limit = 100) => {
     return await response.json();
   } catch (error) {
     console.error('Error fetching historical status data:', error);
+    throw error;
+  }
+};
+
+// Add a new relay device (actually just updating the name in Firebase)
+export const addRelayDevice = async (relayNumber: number, name: string): Promise<void> => {
+  try {
+    // Make sure this path matches how we're reading it above
+    const relayRef = ref(database, `status/relay${relayNumber}/name`);
+    await set(relayRef, name);
+    
+    // Also try to call the backend API to ensure synchronization
+    fetch('/api/devices/name', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        relayNumber,
+        name
+      })
+    }).catch(err => {
+      console.warn('API call failed, but Firebase was updated:', err);
+    });
+  } catch (error) {
+    console.error('Error adding relay device:', error);
+    throw error;
+  }
+};
+
+// Update a relay device name
+export const updateRelayDeviceName = async (relayNumber: number, name: string): Promise<void> => {
+  try {
+    const relayRef = ref(database, `status/relay${relayNumber}/name`);
+    await set(relayRef, name);
+    
+    // Also try to call the backend API
+    fetch('/api/devices/name', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        relayNumber,
+        name
+      })
+    }).catch(err => {
+      console.warn('API call failed, but Firebase was updated:', err);
+    });
+  } catch (error) {
+    console.error('Error updating relay device name:', error);
+    throw error;
+  }
+};
+
+// Delete a relay device (reset to default state)
+export const deleteRelayDevice = async (relayNumber: number): Promise<DeviceStatus[] | void> => {
+  try {
+    console.log(`Attempting to delete relay device: ${relayNumber}`);
+    
+    // Turn off the relay first
+    await controlRelay(relayNumber, false);
+    
+    // Remove the custom name (use null to clear the name)
+    const relayRef = ref(database, `status/relay${relayNumber}/name`);
+    await set(relayRef, null);
+    console.log(`Firebase name key set to null for relay${relayNumber}`);
+    
+    // Also try to call the backend API
+    try {
+      const response = await fetch(`/api/devices/${relayNumber}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.warn(`API returned error: ${errorData.error || response.statusText}`);
+      } else {
+        console.log(`Backend API successfully deleted relay${relayNumber}`);
+        
+        // Force a refresh of the devices data to update UI
+        const updatedDevices = await fetchDevices();
+        return updatedDevices; // Return the updated list to caller
+      }
+    } catch (apiError) {
+      console.warn('Backend API call failed, but Firebase was updated:', apiError);
+    }
+  } catch (error) {
+    console.error('Error deleting relay device:', error);
     throw error;
   }
 };
