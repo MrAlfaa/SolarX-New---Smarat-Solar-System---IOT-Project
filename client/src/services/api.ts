@@ -17,6 +17,18 @@ export interface RelayDevice {
   status: boolean;
 }
 
+export interface Alert {
+  id: string;
+  title: string;
+  message: string;
+  type: 'error' | 'warning' | 'info';
+  timestamp: number;
+  isRead: boolean;
+  isResolved: boolean;
+  source: string;
+  deviceId?: string;
+}
+
 // Fetch devices from Firebase or backend
 export const fetchDevices = async (): Promise<DeviceStatus[]> => {
   try {
@@ -249,4 +261,60 @@ export const subscribeToNightMode = (callback: (isNightMode: boolean) => void): 
   });
   
   return unsubscribe;
+};
+
+// Fetch alerts from Firebase
+export const fetchAlerts = async (): Promise<Alert[]> => {
+  try {
+    const alertsRef = ref(database, 'alerts');
+    const snapshot = await get(alertsRef);
+    const alertsData = snapshot.val() || {};
+    
+    return Object.keys(alertsData).map(key => ({
+      id: key,
+      ...alertsData[key]
+    }));
+  } catch (error) {
+    console.error('Error fetching alerts:', error);
+    return [];
+  }
+};
+
+// Subscribe to real-time alerts
+export const subscribeToAlerts = (callback: (alerts: Alert[]) => void): (() => void) => {
+  const alertsRef = ref(database, 'alerts');
+  
+  const unsubscribe = onValue(alertsRef, (snapshot) => {
+    const alertsData = snapshot.val() || {};
+    const alerts = Object.keys(alertsData).map(key => ({
+      id: key,
+      ...alertsData[key]
+    }));
+    
+    callback(alerts);
+  });
+  
+  return unsubscribe;
+};
+
+// Mark alert as read
+export const markAlertAsRead = async (alertId: string): Promise<void> => {
+  try {
+    const alertRef = ref(database, `alerts/${alertId}/isRead`);
+    await set(alertRef, true);
+  } catch (error) {
+    console.error('Error marking alert as read:', error);
+    throw error;
+  }
+};
+
+// Mark alert as resolved
+export const markAlertAsResolved = async (alertId: string): Promise<void> => {
+  try {
+    const alertRef = ref(database, `alerts/${alertId}/isResolved`);
+    await set(alertRef, true);
+  } catch (error) {
+    console.error('Error marking alert as resolved:', error);
+    throw error;
+  }
 };

@@ -93,6 +93,76 @@ class FirebaseService {
       return false;
     }
   }
-}
 
+  static async createAlert(alertData) {
+    try {
+      const newAlertRef = db.ref('alerts').push()
+      await newAlertRef.set({
+        ...alertData,
+        timestamp: Date.now(),
+        isRead: false,
+        isResolved: false
+      })
+      console.log('Alert created with ID:', newAlertRef.key)
+      return newAlertRef.key
+    } catch (error) {
+      console.error('Error creating alert:', error)
+      throw error
+    }
+  }
+
+  static async createRelayStatusAlert(relayNumber, state) {
+    const alertData = {
+      title: `Relay ${relayNumber} ${state ? 'Activated' : 'Deactivated'}`,
+      message: `Relay ${relayNumber} has been turned ${state ? 'ON' : 'OFF'}.`,
+      type: 'info',
+      source: 'System',
+      deviceId: `DEV00${relayNumber}`
+    }
+    
+    return await this.createAlert(alertData)
+  }
+
+  static async createBatteryAlert(percentage) {
+    // Only create alerts for low battery levels
+    if (percentage <= 20) {
+      const alertData = {
+        title: `Battery Level Low: ${percentage}%`,
+        message: `The system battery has dropped to ${percentage}%. Consider charging soon to prevent system shutdown.`,
+        type: percentage <= 10 ? 'error' : 'warning',
+        source: 'Battery Monitor',
+        deviceId: 'DEV003'
+      }
+      
+      return await this.createAlert(alertData)
+    }
+    
+    // For demo purposes, let's also create an alert when battery is full
+    if (percentage >= 95) {
+      const alertData = {
+        title: `Battery Fully Charged: ${percentage}%`,
+        message: `The system battery is now fully charged at ${percentage}%.`,
+        type: 'info',
+        source: 'Battery Monitor',
+        deviceId: 'DEV003'
+      }
+      
+      return await this.createAlert(alertData)
+    }
+    
+    return null
+  }
+
+  static async getAllAlerts() {
+    try {
+      const snapshot = await db.ref('alerts').once('value')
+      return snapshot.val() || {}
+    } catch (error) {
+      console.error('Error getting alerts:', error)
+      throw error
+    }
+  }
+}
 module.exports = FirebaseService;module.exports = FirebaseService;
+// Replace the last line that has duplicate exports:
+module.exports = FirebaseService;

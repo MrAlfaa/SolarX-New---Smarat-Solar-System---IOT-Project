@@ -125,6 +125,10 @@ class MQTTService {
         // Update Firebase immediately for responsive UI
         FirebaseService.updateStatus(`relay${relayNumber}`, 'ON', state)
           .catch(err => console.error('Firebase update error:', err));
+        
+        // Create an alert for the relay state change
+        FirebaseService.createRelayStatusAlert(relayNumber, state)
+          .catch(err => console.error('Error creating relay alert:', err));
       }
     });
   }

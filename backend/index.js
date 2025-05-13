@@ -242,6 +242,53 @@ app.post('/api/data/nightmode', async (req, res) => {
   }
 });
 
+// Add this endpoint near other API routes
+app.get('/api/alerts', async (req, res) => {
+  try {
+    const alerts = await FirebaseService.getAllAlerts();
+    res.json({
+      success: true,
+      data: alerts,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching alerts:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
+// Add endpoints to mark alerts
+app.post('/api/alerts/:id/read', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await FirebaseService.updateStatus(`alerts/${id}`, 'isRead', true);
+    res.json({
+      success: true,
+      message: 'Alert marked as read'
+    });
+  } catch (error) {
+    console.error('Error marking alert as read:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/alerts/:id/resolve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await FirebaseService.updateStatus(`alerts/${id}`, 'isResolved', true);
+    res.json({
+      success: true,
+      message: 'Alert marked as resolved'
+    });
+  } catch (error) {
+    console.error('Error marking alert as resolved:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   initializeServices();
