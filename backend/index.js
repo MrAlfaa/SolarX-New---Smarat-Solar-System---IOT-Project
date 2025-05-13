@@ -146,7 +146,8 @@ app.get('/api/firebase/status', async (req, res) => {
 app.get('/api/historical/:type', async (req, res) => {
   try {
     const { type } = req.params;
-    const { limit = 100 } = req.query;
+    // Parse limit as an integer to ensure it's a number before passing to DB functions
+    const limit = parseInt(req.query.limit || 100, 10);
     
     let data;
     switch(type) {
@@ -169,6 +170,7 @@ app.get('/api/historical/:type', async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
+    console.error('Error in /api/historical endpoint:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch historical data'

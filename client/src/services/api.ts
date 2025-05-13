@@ -318,3 +318,39 @@ export const markAlertAsResolved = async (alertId: string): Promise<void> => {
     throw error;
   }
 };
+
+// Fetch historical battery data
+export const fetchHistoricalBatteryData = async (limit = 100) => {
+  try {
+    const response = await fetch(`/api/historical/battery?limit=${limit}`);
+    if (!response.ok) throw new Error('Failed to fetch battery history');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching historical battery data:', error);
+    throw error;
+  }
+};
+
+// Fetch historical telemetry data
+export const fetchHistoricalTelemetryData = async () => {
+  try {
+    const response = await fetch('/api/historical/telemetry');
+    if (!response.ok) throw new Error('Failed to fetch telemetry history');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching historical telemetry data:', error);
+    throw error;
+  }
+};
+
+// Fetch historical status data
+export const fetchHistoricalStatusData = async (limit = 100) => {
+  try {
+    const response = await fetch(`/api/historical/status?limit=${limit}`);
+    if (!response.ok) throw new Error('Failed to fetch status history');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching historical status data:', error);
+    throw error;
+  }
+};
