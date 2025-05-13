@@ -4,6 +4,7 @@ const path = require('path');
 const DatabaseService = require('./services/databaseService');
 const MQTTService = require('./services/mqttService');
 const RelayController = require('./controllers/relayController');
+const FirebaseService = require('./services/firebaseService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -202,6 +203,45 @@ app.get('/api/realtime', (req, res) => {
 });
 
 // Start server
+// Add this endpoint to get night mode status
+app.get('/api/data/nightmode', async (req, res) => {
+  try {
+    const isNightMode = await FirebaseService.getNightModeStatus();
+    res.json({
+      success: true,
+      data: { isNightMode },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching night mode data:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
+// Add endpoint to update night mode status
+app.post('/api/data/nightmode', async (req, res) => {
+  try {
+    const { isNightMode } = req.body;
+    
+    if (typeof isNightMode !== 'boolean') {
+      return res.status(400).json({ error: 'Invalid night mode value' });
+    }
+    
+    await FirebaseService.updateNightMode(isNightMode);
+    
+    res.json({
+      success: true,
+      message: `Night mode set to ${isNightMode ? 'ON' : 'OFF'}`
+    });
+  } catch (error) {
+    console.error('Error updating night mode:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   initializeServices();

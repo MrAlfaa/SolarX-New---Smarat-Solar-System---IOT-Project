@@ -1,15 +1,19 @@
 import { 
   FiArrowUp, FiArrowDown, FiSun, FiDollarSign, FiActivity, FiBattery, 
-  FiCloud, FiCloudRain, FiWind, FiThermometer, FiBell, FiPieChart, 
-  FiZap, FiInfo, FiExternalLink, FiPower, FiToggleLeft, FiToggleRight 
+  FiCloud, FiCloudRain, FiWind, FiThermometer, 
+  FiZap, FiPower, FiToggleLeft, FiToggleRight, 
+  FiMoon // Add this icon for night mode
 } from 'react-icons/fi';
 import { database } from "../firebase";
-import { ref, onValue, set } from "firebase/database";
+import { ref, onValue } from "firebase/database";
 import { useEffect, useState } from "react";
-import { controlRelay } from "../services/api";
+import { controlRelay, updateNightMode } from "../services/api";
 
 const Dashboard = () => {
-  // Battery state
+  // Add this state for night mode
+  const [isNightMode, setIsNightMode] = useState<boolean>(false);
+  
+  // Your existing state variables...
   const [batteryPercentage, setBatteryPercentage] = useState<number | null>(null);
   const [voltage, setVoltage] = useState<number | null>(null);
   const [batteryHealth, setBatteryHealth] = useState("--");
@@ -22,6 +26,32 @@ const Dashboard = () => {
   const [searchStatus, setSearchStatus] = useState<boolean>(false);
   const [lastCommand, setLastCommand] = useState<string>("--");
   const [lastUpdated, setLastUpdated] = useState<string>("--");
+
+  // Add this effect to listen for night mode status
+  useEffect(() => {
+    const nightModeRef = ref(database, "status/Night/Mode");
+    const unsubscribe = onValue(nightModeRef, (snapshot) => {
+      const value = snapshot.val();
+      if (typeof value === "boolean") {
+        setIsNightMode(value);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Your existing useEffects...
+
+  // Add this function to toggle night mode
+  const toggleNightMode = async () => {
+    try {
+      await updateNightMode(!isNightMode);
+      // The Firebase listener will update the state
+      setLastCommand(`Night mode ${!isNightMode ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      console.error('Failed to toggle night mode:', error);
+    }
+  };
 
   // Battery data listener
   useEffect(() => {
@@ -271,6 +301,25 @@ const Dashboard = () => {
           <h2 className="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">System Status</h2>
           
           <div className="space-y-4">
+            {/* Add Night Mode toggle here at the top of the list */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center">
+                <FiMoon className="w-5 h-5 text-indigo-500 mr-2" />
+                <span className="text-gray-700">Night Mode</span>
+              </div>
+              <button 
+                onClick={toggleNightMode}
+                className={`flex items-center px-3 py-1 rounded-full transition-colors ${
+                  isNightMode 
+                    ? 'bg-indigo-100 text-indigo-700' 
+                    : 'bg-gray-200 text-gray-500'
+                }`}
+              >
+                {isNightMode ? <FiToggleRight className="mr-1" /> : <FiToggleLeft className="mr-1" />}
+                {isNightMode ? 'ON' : 'OFF'}
+              </button>
+            </div>
+            
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <span className="text-gray-700">Search Status</span>
               <span className={`px-3 py-1 rounded-full text-sm ${
@@ -298,7 +347,6 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-
       {/* Main Content - First Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Energy Production Chart - Keeping existing chart */}

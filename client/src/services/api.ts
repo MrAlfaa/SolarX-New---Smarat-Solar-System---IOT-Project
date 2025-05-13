@@ -198,3 +198,55 @@ export const fetchStatusData = async () => {
     throw error;
   }
 };
+// Add these functions to api.ts
+
+// Get night mode status
+export const fetchNightModeStatus = async (): Promise<boolean> => {
+  try {
+    // Read directly from Firebase for real-time updates
+    const nightModeRef = ref(database, 'status/Night/Mode');
+    const snapshot = await get(nightModeRef);
+    return snapshot.val() || false;
+  } catch (error) {
+    console.error('Error fetching night mode status:', error);
+    return false;
+  }
+};
+
+// Update night mode status
+export const updateNightMode = async (isNightMode: boolean): Promise<void> => {
+  try {
+    // First update Firebase directly for instant UI feedback
+    const nightModeRef = ref(database, 'status/Night/Mode');
+    await set(nightModeRef, isNightMode);
+    
+    // Then try to call the API
+    fetch('/api/data/nightmode', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        isNightMode
+      })
+    }).catch(err => {
+      console.error('Error calling night mode API:', err);
+      // We already updated Firebase, so UI should show the correct state
+    });
+  } catch (error) {
+    console.error('Error controlling night mode:', error);
+    throw error;
+  }
+};
+
+// Subscribe to night mode changes
+export const subscribeToNightMode = (callback: (isNightMode: boolean) => void): (() => void) => {
+  const nightModeRef = ref(database, 'status/Night/Mode');
+  
+  const unsubscribe = onValue(nightModeRef, (snapshot) => {
+    const isNightMode = snapshot.val() || false;
+    callback(isNightMode);
+  });
+  
+  return unsubscribe;
+};
