@@ -383,7 +383,7 @@ const Dashboard = () => {
       </div>
       {/* Main Content - First Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Energy Production Chart - Improved visualization */}
+        {/* Energy Production Chart - Fixed visualization */}
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6 lg:col-span-2">
           <h2 className="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">Energy Production History</h2>
           <div className="h-64 md:h-80 relative">
@@ -396,42 +396,72 @@ const Dashboard = () => {
                   <span>Min</span>
                 </div>
                 
-                {/* Chart grid lines */}
-                <div className="absolute left-10 right-0 top-0 bottom-0 flex flex-col justify-between">
-                  <div className="border-t border-gray-200 h-0 w-full"></div>
-                  <div className="border-t border-gray-200 h-0 w-full"></div>
-                  <div className="border-t border-gray-200 h-0 w-full"></div>
+                {/* Chart grid */}
+                <div className="absolute left-10 right-0 top-0 bottom-0">
+                  <div className="h-full w-full flex flex-col justify-between">
+                    <div className="border-t border-gray-100 w-full"></div>
+                    <div className="border-t border-gray-100 w-full"></div>
+                    <div className="border-t border-gray-100 w-full"></div>
+                  </div>
                 </div>
                 
-                {/* Actual chart bars */}
-                <div className="absolute left-10 right-0 top-0 bottom-0 flex items-end justify-between px-2">
-                  {hourlyProduction.filter((_, i) => i % 2 === 0).map((hour, i) => {
-                    // Find the maximum value in the dataset for proper scaling
+                {/* Chart bars - Show all hours, don't filter */}
+                <div className="absolute left-12 right-2 top-0 bottom-8 flex items-end">
+                  {hourlyProduction.map((hour, i) => {
+                    // Find the maximum value for scaling
                     const maxValue = Math.max(...hourlyProduction.map(h => h.value), 0.1);
                     
-                    // Calculate percentage height, with a minimum of 5% for visibility when not zero
-                    const heightPercentage = hour.value > 0 
-                      ? Math.max(5, (hour.value / maxValue) * 100) 
-                      : 0;
-                      
+                    // For small values, use a more aggressive scaling
+                    let heightPercentage;
+                    if (hour.value <= 0) {
+                      heightPercentage = 0;
+                    } else if (maxValue < 1) {
+                      // For very small max values, scale more aggressively
+                      heightPercentage = Math.max(5, (hour.value / maxValue) * 100);
+                    } else {
+                      heightPercentage = (hour.value / maxValue) * 100;
+                      // Ensure even tiny values have some visibility
+                      if (hour.value > 0 && heightPercentage < 5) {
+                        heightPercentage = 5;
+                      }
+                    }
+                    
                     return (
-                      <div key={i} className="flex flex-col items-center w-full">
+                      <div key={i} className="flex-1 flex flex-col items-center mx-0.5">
+                        {/* Bar with gradient and enhanced visibility */}
                         <div 
-                          className="w-8 md:w-10 bg-gradient-to-t from-yellow-500 to-yellow-300 rounded-t-sm transition-all duration-300 relative group shadow-md"
-                          style={{ height: `${heightPercentage}%` }}
-                          aria-hidden="true"
+                          className={`w-full max-w-[15px] rounded-t transition-all duration-300 relative group ${
+                            hour.value > 0 
+                              ? 'bg-gradient-to-t from-yellow-500 to-yellow-300 shadow-sm'
+                              : 'bg-gray-100'
+                          }`}
+                          style={{ 
+                            height: `${heightPercentage}%`,
+                            minHeight: hour.value > 0 ? '4px' : '0'
+                          }}
                         >
-                          {/* Tooltip */}
-                          <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-10 pointer-events-none">
-                            <p className="font-bold">{hour.time}</p>
-                            <p>{hour.value.toFixed(2)} kWh</p>
-                          </div>
+                          {/* Enhanced tooltip */}
+                          {hour.value > 0 && (
+                            <div className="absolute bottom-full mb-1 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 z-10 whitespace-nowrap shadow-lg">
+                              <div className="font-semibold">{hour.time}</div>
+                              <div className="text-yellow-300">{hour.value.toFixed(3)} kWh</div>
+                            </div>
+                          )}
                         </div>
-                        <span className="text-xs text-gray-500 mt-1 rotate-45 origin-left transform translate-y-3">{hour.time}</span>
+                        
+                        {/* Hour labels - only show every 3 hours to avoid crowding */}
+                        {i % 3 === 0 && (
+                          <div className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-top-left translate-y-2 whitespace-nowrap">
+                            {hour.time}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
+                
+                {/* X-axis line */}
+                <div className="absolute left-10 right-0 bottom-8 h-px bg-gray-300"></div>
               </>
             ) : (
               <div className="h-full flex items-center justify-center">
@@ -440,13 +470,13 @@ const Dashboard = () => {
             )}
           </div>
           
-          <div className="mt-8 flex flex-wrap items-center justify-between text-sm text-gray-500">
-            <div className="flex items-center mb-2 md:mb-0 bg-gray-50 p-2 rounded-lg">
+          <div className="mt-10 flex flex-wrap items-center justify-between text-sm text-gray-500 gap-2">
+            <div className="flex items-center bg-gray-50 p-2 rounded-lg">
               <FiSun className="text-yellow-500 mr-2" aria-hidden="true" />
               <span>
                 {hourlyProduction.length > 0 ? (
                   <>
-                    Peak: <span className="font-bold">{Math.max(...hourlyProduction.map(h => h.value)).toFixed(2)} kWh</span> at{' '}
+                    Peak: <span className="font-bold">{Math.max(...hourlyProduction.map(h => h.value)).toFixed(3)} kWh</span> at{' '}
                     <span className="font-bold">{hourlyProduction.reduce((peak, hour) => hour.value > peak.value ? hour : peak, hourlyProduction[0]).time}</span>
                   </>
                 ) : (
@@ -459,7 +489,7 @@ const Dashboard = () => {
               <span>
                 {hourlyProduction.length > 0 ? (
                   <>
-                    Total: <span className="font-bold">{hourlyProduction.reduce((sum, hour) => sum + hour.value, 0).toFixed(2)} kWh</span>
+                    Total: <span className="font-bold">{hourlyProduction.reduce((sum, hour) => sum + hour.value, 0).toFixed(3)} kWh</span>
                   </>
                 ) : (
                   'Total: No data available'
