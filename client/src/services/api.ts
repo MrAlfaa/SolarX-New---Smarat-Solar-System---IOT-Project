@@ -497,6 +497,7 @@ export const deleteRelayDevice = async (relayNumber: number): Promise<DeviceStat
     console.error('Error deleting relay device:', error);
     throw error;
   }
+};
 
 // Get energy production history with better error handling
 export const fetchEnergyProductionHistory = async (days = 7): Promise<any> => {
@@ -548,5 +549,4 @@ const getMockEnergyProduction = () => {
     { time: '6 PM', value: 1.0 },
     { time: '8 PM', value: 0.1 },
   ];
-
 };

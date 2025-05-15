@@ -256,6 +256,13 @@ app.get('/api/alerts', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching alerts:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch alerts'
+    });
+  }
+});
+
 
 // Add this at the start of your endpoints section for debugging
 app.use((req, res, next) => {
