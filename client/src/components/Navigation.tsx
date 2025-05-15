@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { FiHome, FiCpu, FiBarChart2, FiBell, FiSettings, FiSun, FiMenu, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { FiHome, FiCpu, FiBarChart2, FiBell, FiSettings, FiSun, FiMenu, FiX, FiChevronLeft, FiChevronRight, FiLogOut } from 'react-icons/fi';
 import { useSidebar } from '../context/SidebarContext';
+import { useAuth } from '../context/AuthContext';
 
 const Navigation = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { isCollapsed, toggleSidebar } = useSidebar();
+  const { logout, solarId } = useAuth();
   
   const navItems = [
     { path: '/', name: 'Dashboard', icon: <FiHome className="w-5 h-5" /> },
@@ -18,6 +21,12 @@ const Navigation = () => {
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   return (
@@ -86,20 +95,36 @@ const Navigation = () => {
         
         <div className="p-4 border-t border-gray-200">
           {isCollapsed ? (
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-2">
               <div className="bg-blue-500 text-white rounded-full h-10 w-10 flex items-center justify-center font-bold">
-                JD
+                SX
               </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 text-gray-500 hover:text-red-500 rounded-full hover:bg-gray-100"
+                title="Logout"
+              >
+                <FiLogOut className="h-5 w-5" />
+              </button>
             </div>
           ) : (
-            <div className="flex items-center gap-3 p-2">
-              <div className="bg-blue-500 text-white rounded-full h-10 w-10 flex-shrink-0 flex items-center justify-center font-bold">
-                JD
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3 p-2">
+                <div className="bg-blue-500 text-white rounded-full h-10 w-10 flex-shrink-0 flex items-center justify-center font-bold">
+                  SX
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-800 truncate">Solar System</p>
+                  <p className="text-sm text-gray-500 truncate">{solarId || 'SX-2342'}</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="font-medium text-gray-800 truncate">John Doe</p>
-                <p className="text-sm text-gray-500 truncate">Administrator</p>
-              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 p-2 text-gray-600 hover:text-red-500 hover:bg-gray-100 rounded-lg w-full"
+              >
+                <FiLogOut className="h-5 w-5" />
+                <span>Logout</span>
+              </button>
             </div>
           )}
         </div>

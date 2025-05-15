@@ -146,7 +146,8 @@ app.get('/api/firebase/status', async (req, res) => {
 app.get('/api/historical/:type', async (req, res) => {
   try {
     const { type } = req.params;
-    const { limit = 100 } = req.query;
+    // Parse limit as an integer to ensure it's a number before passing to DB functions
+    const limit = parseInt(req.query.limit || 100, 10);
     
     let data;
     switch(type) {
@@ -169,6 +170,7 @@ app.get('/api/historical/:type', async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
+    console.error('Error in /api/historical endpoint:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch historical data'
@@ -242,6 +244,19 @@ app.post('/api/data/nightmode', async (req, res) => {
   }
 });
 
+
+// Add this endpoint near other API routes
+app.get('/api/alerts', async (req, res) => {
+  try {
+    const alerts = await FirebaseService.getAllAlerts();
+    res.json({
+      success: true,
+      data: alerts,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching alerts:', error);
+
 // Add this at the start of your endpoints section for debugging
 app.use((req, res, next) => {
   console.log(`📡 ${req.method} request received for ${req.url}`);
@@ -265,12 +280,100 @@ app.get('/api/data/energy-production', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error fetching energy production data:', error);
+
     res.status(500).json({ 
       success: false,
       error: 'Internal server error'
     });
   }
 });
+
+
+// Add endpoints to mark alerts
+app.post('/api/alerts/:id/read', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await FirebaseService.updateStatus(`alerts/${id}`, 'isRead', true);
+    res.json({
+      success: true,
+      message: 'Alert marked as read'
+    });
+  } catch (error) {
+    console.error('Error marking alert as read:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/alerts/:id/resolve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await FirebaseService.updateStatus(`alerts/${id}`, 'isResolved', true);
+    res.json({
+      success: true,
+      message: 'Alert marked as resolved'
+    });
+  } catch (error) {
+    console.error('Error marking alert as resolved:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add/Update device name
+app.post('/api/devices/name', async (req, res) => {
+  try {
+    const { relayNumber, name } = req.body;
+    
+    if (!relayNumber || (relayNumber !== 1 && relayNumber !== 2)) {
+      return res.status(400).json({ error: 'Invalid relay number' });
+    }
+    
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ error: 'Invalid device name' });
+    }
+    
+    const success = await FirebaseService.updateDeviceName(relayNumber, name);
+    
+    if (success) {
+      return res.json({
+        success: true,
+        message: `Device name updated for relay ${relayNumber}`
+      });
+    } else {
+      return res.status(500).json({ error: 'Failed to update device name' });
+    }
+  } catch (error) {
+    console.error('Error updating device name:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete/Reset device
+app.delete('/api/devices/:relayNumber', async (req, res) => {
+  try {
+    const relayNumber = parseInt(req.params.relayNumber, 10);
+    
+    console.log(`Backend received request to delete relay ${relayNumber}`);
+    
+    if (isNaN(relayNumber) || (relayNumber !== 1 && relayNumber !== 2)) {
+      return res.status(400).json({ error: 'Invalid relay number' });
+    }
+    
+    const success = await FirebaseService.deleteDevice(relayNumber);
+    
+    if (success) {
+      return res.json({
+        success: true,
+        message: `Device reset for relay ${relayNumber}`
+      });
+    } else {
+      return res.status(500).json({ error: 'Failed to reset device' });
+    }
+  } catch (error) {
+    console.error('Error resetting device:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

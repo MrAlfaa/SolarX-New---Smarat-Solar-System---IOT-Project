@@ -24,7 +24,8 @@ class DatabaseService {
   }
   
   static async getBatteryData(limit = 100) {
-    return await BatteryModel.getAllData(limit);
+    // Ensure limit is a number before passing to the model
+    return await BatteryModel.getAllData(parseInt(limit, 10));
   }
   
   static async getLatestBatteryData() {

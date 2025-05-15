@@ -60,11 +60,14 @@ class BatteryModel {
 
   static async getAllData(limit = 100) {
     try {
-      const [rows] = await pool.query(`
-        SELECT * FROM battery_data 
-        ORDER BY created_at DESC 
-        LIMIT ?
-      `, [limit]);
+      // Convert limit to a number to ensure it's used as a numeric value
+      const numericLimit = parseInt(limit, 10);
+      
+      // Execute query with numeric limit directly in the query string 
+      // instead of using a parameter placeholder for LIMIT
+      const [rows] = await pool.query(
+        `SELECT * FROM battery_data ORDER BY created_at DESC LIMIT ${numericLimit}`
+      );
       return rows;
     } catch (error) {
       console.error('Error fetching battery data:', error);
