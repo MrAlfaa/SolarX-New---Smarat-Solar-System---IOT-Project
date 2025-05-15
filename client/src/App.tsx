@@ -1,9 +1,10 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import DeviceManagement from './pages/DeviceManagement';
 import Analytics from './pages/Analytics';
 import Alerts from './pages/Alerts';
 import Settings from './pages/Settings';
+import Login from './pages/Login'; // Import the new Login component
 import Navigation from './components/Navigation';
 import { AuthProvider } from './context/AuthContext';
 import { SidebarProvider, useSidebar } from './context/SidebarContext';
@@ -30,11 +31,6 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
-  // For development, we'll create dummy components for the pages that
-  // haven't been implemented yet
-  const Login = () => <div className="min-h-screen flex items-center justify-center bg-gray-50">Login Page (Coming Soon)</div>;
-  const Register = () => <div className="min-h-screen flex items-center justify-center bg-gray-50">Register Page (Coming Soon)</div>;
-
   return (
     <AuthProvider>
       <SidebarProvider>
@@ -42,7 +38,6 @@ function App() {
           <div className="min-h-screen">
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
               <Route path="/" element={
                 <PrivateRoute>
                   <MainLayout>
@@ -78,6 +73,8 @@ function App() {
                   </MainLayout>
                 </PrivateRoute>
               } />
+              {/* Catch-all redirect to login */}
+              <Route path="*" element={<Navigate to="/login" />} />
             </Routes>
           </div>
         </Router>

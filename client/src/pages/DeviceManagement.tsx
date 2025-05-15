@@ -2,17 +2,34 @@ import { useState, useEffect } from 'react';
 import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiMoreVertical, FiWifi, FiWifiOff, FiToggleRight, FiToggleLeft } from 'react-icons/fi';
 import { ref, set } from 'firebase/database';
 import { database } from '../firebase';
-import { DeviceStatus, fetchDevices, controlRelay, subscribeToDeviceUpdates, fetchBatteryData } from '../services/api';
+import { 
+  DeviceStatus, 
+  fetchDevices, 
+  controlRelay, 
+  subscribeToDeviceUpdates, 
+  fetchBatteryData,
+  addRelayDevice,
+  updateRelayDeviceName,
+  deleteRelayDevice
+} from '../services/api';
 
 const DeviceManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
+  const [showEditDeviceModal, setShowEditDeviceModal] = useState(false);
+  const [showDeleteDeviceModal, setShowDeleteDeviceModal] = useState(false);
   const [devices, setDevices] = useState<DeviceStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [batteryInfo, setBatteryInfo] = useState<any>(null);
   const [isControlling, setIsControlling] = useState(false);
+  
+  // New state variables for device management
+  const [newDeviceName, setNewDeviceName] = useState('');
+  const [newDeviceType, setNewDeviceType] = useState('relay');
+  const [selectedRelayNumber, setSelectedRelayNumber] = useState<number>(1);
+  const [selectedDevice, setSelectedDevice] = useState<DeviceStatus | null>(null);
   
   // Load devices on component mount
   useEffect(() => {
@@ -32,14 +49,18 @@ const DeviceManagement = () => {
     
     loadDevices();
     
-    // Set up real-time updates
+    // Set up real-time updates with a key to force re-subscription
     const unsubscribe = subscribeToDeviceUpdates((updatedDevices) => {
+      console.log('Real-time device update received:', updatedDevices);
       setDevices(updatedDevices);
     });
     
     // Clean up the subscription on unmount
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      console.log('Cleaning up device subscription');
+      unsubscribe();
+    };
+  }, []); // Keep this as an empty dependency array to avoid multiple subscriptions
   
   // Load battery data
   useEffect(() => {
@@ -82,6 +103,125 @@ const DeviceManagement = () => {
     } finally {
       setIsControlling(false);
     }
+  };
+
+  // Function to handle adding a new device
+  const handleAddDevice = async () => {
+    try {
+      if (!newDeviceName.trim()) {
+        setError('Device name cannot be empty');
+        return;
+      }
+      
+      // Check if the selected relay is already in use with a custom name
+      const existingDevice = devices.find(d => 
+        d.type === 'Relay' && 
+        d.data?.relay === selectedRelayNumber && 
+        d.name !== `Relay ${selectedRelayNumber} (Bulb ${selectedRelayNumber})`
+      );
+      
+      if (existingDevice) {
+        setError(`Relay ${selectedRelayNumber} is already in use with name: ${existingDevice.name}`);
+        return;
+      }
+      
+      await addRelayDevice(selectedRelayNumber, newDeviceName);
+      
+      // Reset form
+      setNewDeviceName('');
+      setShowAddDeviceModal(false);
+      
+      // Show success
+      setError(null);
+    } catch (err) {
+      console.error('Failed to add device:', err);
+      setError('Failed to add device. Please try again.');
+    }
+  };
+
+  // Function to handle editing a device
+  const handleEditDevice = async () => {
+    try {
+      if (!selectedDevice || !newDeviceName.trim()) {
+        setError('Device name cannot be empty');
+        return;
+      }
+      
+      // Get relay number from device data
+      const relayNumber = selectedDevice.data?.relay;
+      if (!relayNumber) {
+        setError('Invalid device selected');
+        return;
+      }
+      
+      await updateRelayDeviceName(relayNumber, newDeviceName);
+      
+      // Reset form
+      setNewDeviceName('');
+      setSelectedDevice(null);
+      setShowEditDeviceModal(false);
+      
+      // Show success
+      setError(null);
+    } catch (err) {
+      console.error('Failed to update device:', err);
+      setError('Failed to update device. Please try again.');
+    }
+  };
+
+  // Function to handle deleting a device
+  const handleDeleteDevice = async () => {
+    try {
+      if (!selectedDevice) {
+        setError('No device selected');
+        return;
+      }
+      
+      // Get relay number from device data
+      const relayNumber = selectedDevice.data?.relay;
+      console.log("Deleting relay number:", relayNumber, "from device:", selectedDevice);
+      
+      if (!relayNumber && relayNumber !== 0) {
+        setError('Invalid device selected - no relay number found');
+        return;
+      }
+      
+      // Show loading state
+      setIsControlling(true); 
+      
+      // Delete the device
+      await deleteRelayDevice(relayNumber);
+      
+      // Remove this device from our local state immediately for responsive UI
+      setDevices(prevDevices => prevDevices.filter(device => 
+        !(device.type === 'Relay' && device.data?.relay === relayNumber)
+      ));
+      
+      // Reset modal state
+      setSelectedDevice(null);
+      setShowDeleteDeviceModal(false);
+      
+      // Show success message
+      setError(null);
+    } catch (err) {
+      console.error('Failed to delete device:', err);
+      setError('Failed to delete device. Please try again.');
+    } finally {
+      setIsControlling(false);
+    }
+  };
+
+  // Open edit modal
+  const openEditModal = (device: DeviceStatus) => {
+    setSelectedDevice(device);
+    setNewDeviceName(device.name);
+    setShowEditDeviceModal(true);
+  };
+
+  // Open delete modal
+  const openDeleteModal = (device: DeviceStatus) => {
+    setSelectedDevice(device);
+    setShowDeleteDeviceModal(true);
   };
 
   // Filter devices based on search and status filter
@@ -165,7 +305,7 @@ const DeviceManagement = () => {
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
           <p className="text-gray-500 text-xs md:text-sm font-medium">Batteries</p>
           <p className="text-xl md:text-2xl font-bold text-gray-800 mt-1">
-                      {devices.filter(d => d.type === 'Battery').length}
+            {devices.filter(d => d.type === 'Battery').length}
           </p>
           <div className="flex items-center mt-3 md:mt-4 text-sm text-blue-500">
             <span>{batteryAverage ? `${Math.round(batteryAverage)}%` : 'N/A'} Average Capacity</span>
@@ -174,7 +314,7 @@ const DeviceManagement = () => {
         
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
           <p className="text-gray-500 text-xs md:text-sm font-medium">Last Update</p>
-          <p className="text-xl md:text-2xl font-bold text-gray-800 mt-1">
+                    <p className="text-xl md:text-2xl font-bold text-gray-800 mt-1">
             {loading ? 'Loading...' : 'Just now'}
           </p>
           <div className="flex items-center mt-3 md:mt-4 text-sm text-gray-500">
@@ -288,12 +428,24 @@ const DeviceManagement = () => {
                               )}
                             </button>
                           )}
-                          <button className="text-blue-600 hover:text-blue-900" title="Edit device">
-                            <FiEdit2 className="h-4 w-4" />
-                          </button>
-                          <button className="text-red-600 hover:text-red-900" title="Delete device">
-                            <FiTrash2 className="h-4 w-4" />
-                          </button>
+                          {device.type === 'Relay' && (
+                            <>
+                              <button 
+                                className="text-blue-600 hover:text-blue-900" 
+                                title="Edit device"
+                                onClick={() => openEditModal(device)}
+                              >
+                                <FiEdit2 className="h-4 w-4" />
+                              </button>
+                              <button 
+                                className="text-red-600 hover:text-red-900" 
+                                title="Delete device"
+                                onClick={() => openDeleteModal(device)}
+                              >
+                                <FiTrash2 className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
                           <button className="text-gray-600 hover:text-gray-900" title="More options">
                             <FiMoreVertical className="h-4 w-4" />
                           </button>
@@ -357,12 +509,24 @@ const DeviceManagement = () => {
                         )}
                       </button>
                     )}
-                    <button className="text-blue-600 hover:text-blue-900" title="Edit device">
-                      <FiEdit2 className="h-4 w-4" />
-                    </button>
-                    <button className="text-red-600 hover:text-red-900" title="Delete device">
-                      <FiTrash2 className="h-4 w-4" />
-                    </button>
+                    {device.type === 'Relay' && (
+                      <>
+                        <button 
+                          className="text-blue-600 hover:text-blue-900" 
+                          title="Edit device"
+                          onClick={() => openEditModal(device)}
+                        >
+                          <FiEdit2 className="h-4 w-4" />
+                        </button>
+                        <button 
+                          className="text-red-600 hover:text-red-900" 
+                          title="Delete device"
+                          onClick={() => openDeleteModal(device)}
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
                     <button className="text-gray-600 hover:text-gray-900" title="More options">
                       <FiMoreVertical className="h-4 w-4" />
                     </button>
@@ -474,37 +638,42 @@ const DeviceManagement = () => {
                         <input
                           type="text"
                           id="device-name"
+                          value={newDeviceName}
+                          onChange={(e) => setNewDeviceName(e.target.value)}
                           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          placeholder="e.g. Main Solar Array"
+                          placeholder="e.g. Living Room Light"
                         />
                       </div>
                       <div>
                         <label htmlFor="device-type" className="block text-sm font-medium text-gray-700">Device Type</label>
                         <select
                           id="device-type"
+                          value={newDeviceType}
+                          onChange={(e) => setNewDeviceType(e.target.value)}
                           className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                           title="Select device type"
                           aria-label="Select device type"
+                          disabled // Only relay type is allowed
                         >
-                          <option value="">Select a type</option>
-                          <option value="solar-panel">Solar Panel</option>
-                          <option value="battery">Battery</option>
                           <option value="relay">Relay</option>
-                          <option value="inverter">Inverter</option>
-                          <option value="sensor">Sensor</option>
                         </select>
                       </div>
                       <div>
-                        <label htmlFor="device-location" className="block text-sm font-medium text-gray-700">Location</label>
-                        <input
-                          type="text"
-                          id="device-location"
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          placeholder="e.g. Roof - South"
-                        />
+                        <label htmlFor="relay-number" className="block text-sm font-medium text-gray-700">Relay Number</label>
+                        <select
+                          id="relay-number"
+                          value={selectedRelayNumber}
+                          onChange={(e) => setSelectedRelayNumber(Number(e.target.value))}
+                          className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          title="Select relay number"
+                          aria-label="Select relay number"
+                        >
+                          <option value={1}>Relay 1</option>
+                          <option value={2}>Relay 2</option>
+                        </select>
                       </div>
                       <div className="bg-yellow-50 p-3 rounded-md text-sm text-yellow-800">
-                        <p>Note: Adding new devices requires configuration on the backend. Currently, the system supports Relay 1, Relay 2, and Battery monitoring by default.</p>
+                        <p>Note: This system supports only Relay 1 and Relay 2 devices. The actual device is already connected, you are just creating a custom name for it.</p>
                       </div>
                     </div>
                   </div>
@@ -513,13 +682,124 @@ const DeviceManagement = () => {
               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button
                   type="button"
+                  onClick={handleAddDevice}
                   className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   Add Device
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowAddDeviceModal(false)}
+                  onClick={() => {
+                    setShowAddDeviceModal(false);
+                    setNewDeviceName('');
+                  }}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Device Modal */}
+      {showEditDeviceModal && selectedDevice && (
+        <div className="fixed inset-0 overflow-y-auto z-50">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowEditDeviceModal(false)}></div>
+            <div className="bg-white rounded-lg overflow-hidden shadow-xl transform transition-all max-w-lg w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">Edit Device</h3>
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <label htmlFor="edit-device-name" className="block text-sm font-medium text-gray-700">Device Name</label>
+                        <input
+                          type="text"
+                          id="edit-device-name"
+                          value={newDeviceName}
+                          onChange={(e) => setNewDeviceName(e.target.value)}
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          placeholder="e.g. Living Room Light"
+                        />
+                      </div>
+                      <div>
+                        <p className="block text-sm font-medium text-gray-700">Device Type</p>
+                        <p className="mt-1 text-sm text-gray-500">{selectedDevice.type}</p>
+                      </div>
+                      <div>
+                        <p className="block text-sm font-medium text-gray-700">Relay Number</p>
+                        <p className="mt-1 text-sm text-gray-500">Relay {selectedDevice.data?.relay}</p>
+                      </div>
+                      <div className="bg-blue-50 p-3 rounded-md text-sm text-blue-800">
+                        <p>You can only edit the device name. The relay number and type cannot be changed.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={handleEditDevice}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Save Changes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditDeviceModal(false);
+                    setSelectedDevice(null);
+                    setNewDeviceName('');
+                  }}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Device Modal */}
+      {showDeleteDeviceModal && selectedDevice && (
+        <div className="fixed inset-0 overflow-y-auto z-50">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowDeleteDeviceModal(false)}></div>
+            <div className="bg-white rounded-lg overflow-hidden shadow-xl transform transition-all max-w-lg w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <FiTrash2 className="h-6 w-6 text-red-600" />
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">Delete Device</h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        Are you sure you want to delete the device "{selectedDevice.name}"? This will remove the device from your dashboard. You can add it again later with a custom name if needed.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={handleDeleteDevice}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDeleteDeviceModal(false);
+                    setSelectedDevice(null);
+                  }}
                   className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   Cancel
@@ -534,5 +814,3 @@ const DeviceManagement = () => {
 };
 
 export default DeviceManagement;
-
-

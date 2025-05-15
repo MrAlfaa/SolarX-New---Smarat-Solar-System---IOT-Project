@@ -1,3 +1,4 @@
+console.log('Loading BatteryModel module...');
 const pool = require('../config/db');
 
 class BatteryModel {
@@ -59,17 +60,36 @@ class BatteryModel {
 
   static async getAllData(limit = 100) {
     try {
-      const [rows] = await pool.query(`
-        SELECT * FROM battery_data 
-        ORDER BY created_at DESC 
-        LIMIT ?
-      `, [limit]);
+      // Convert limit to a number to ensure it's used as a numeric value
+      const numericLimit = parseInt(limit, 10);
+      
+      // Execute query with numeric limit directly in the query string 
+      // instead of using a parameter placeholder for LIMIT
+      const [rows] = await pool.query(
+        `SELECT * FROM battery_data ORDER BY created_at DESC LIMIT ${numericLimit}`
+      );
       return rows;
     } catch (error) {
       console.error('Error fetching battery data:', error);
       throw error;
     }
   }
+  
+  static async getDataForPeriod(days = 7) {
+    try {
+      const [rows] = await pool.query(`
+        SELECT * FROM battery_data 
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        ORDER BY created_at ASC
+      `, [days]);
+      return rows;
+    } catch (error) {
+      console.error('Error fetching battery data for period:', error);
+      throw error;
+    }
+  }
 }
+
+module.exports = BatteryModel;
 
 module.exports = BatteryModel;
