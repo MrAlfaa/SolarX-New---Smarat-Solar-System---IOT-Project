@@ -1,5 +1,6 @@
 import { database } from '../firebase';
-import { ref, get, set, onValue } from 'firebase/database';
+import { ref, get, set, onValue,push  } from 'firebase/database';
+
 
 export interface DeviceStatus {
   id: string;
@@ -150,6 +151,20 @@ export const controlRelay = async (relayNumber: number, state: boolean): Promise
     // First update Firebase directly for instant UI feedback
     const relayRef = ref(database, `status/relay${relayNumber}/ON`);
     await set(relayRef, state);
+    
+    // Create alert for relay status change
+    const alertsRef = ref(database, 'alerts');
+    const newAlertRef = push(alertsRef);
+    await set(newAlertRef, {
+      title: `Relay ${relayNumber} ${state ? 'Activated' : 'Deactivated'}`,
+      message: `Relay ${relayNumber} has been turned ${state ? 'ON' : 'OFF'}.`,
+      type: 'info',
+      source: 'System',
+      deviceId: `DEV00${relayNumber}`,
+      timestamp: Date.now(),
+      isRead: false,
+      isResolved: false
+    });
     
     // Then try to call the API, but don't wait for the response before updating the UI
     fetch('/api/relay/control', {
