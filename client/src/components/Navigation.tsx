@@ -1,12 +1,12 @@
-import { useState, useContext } from 'react';
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { FiHome, FiCpu, FiBarChart2, FiBell, FiSettings, FiSun, FiMenu, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
-import { useSidebar } from '../context/SidebarContext'; // Import from SidebarContext instead of App
+import { useSidebar } from '../context/SidebarContext';
 
 const Navigation = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { isCollapsed, toggleSidebar } = useSidebar(); // Use the hook from SidebarContext
+  const { isCollapsed, toggleSidebar } = useSidebar();
   
   const navItems = [
     { path: '/', name: 'Dashboard', icon: <FiHome className="w-5 h-5" /> },
@@ -38,36 +38,35 @@ const Navigation = () => {
         <div 
           className="lg:hidden fixed inset-0 bg-gray-800 bg-opacity-50 z-10"
           onClick={toggleMobileMenu}
+          aria-hidden="true"
         ></div>
       )}
 
       {/* Sidebar navigation */}
-      <div 
-        className={`bg-white shadow-lg fixed inset-y-0 left-0 z-20 transform ${
+      <aside 
+        className={`fixed inset-y-0 left-0 z-20 transform ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 transition-transform duration-200 ease-in-out lg:fixed ${
+        } lg:translate-x-0 transition-transform duration-200 ease-in-out ${
           isCollapsed ? 'lg:w-20' : 'lg:w-64'
-        } flex flex-col sidebar-transition`}
+        } flex flex-col bg-white shadow-lg`}
       >
-        <div className={`p-6 border-b border-gray-200 ${isCollapsed ? 'lg:p-4' : ''}`}>
-          <div className="flex items-center gap-2">
-            <FiSun className="text-yellow-500 h-8 w-8" />
-            {!isCollapsed && (
-              <h1 className="text-2xl font-bold text-gray-800">SolarX</h1>
-            )}
-          </div>
+        <div className={`p-6 ${isCollapsed ? 'lg:p-4' : ''} border-b border-gray-200 flex items-center`}>
+          <FiSun className="text-yellow-500 h-8 w-8 flex-shrink-0" />
           {!isCollapsed && (
-            <p className="text-gray-500 text-sm mt-1">Solar Panel Monitoring</p>
+            <div className="ml-2 overflow-hidden">
+              <h1 className="text-2xl font-bold text-gray-800 truncate">SolarX</h1>
+              <p className="text-gray-500 text-sm mt-1 truncate">Solar Panel Monitoring</p>
+            </div>
           )}
         </div>
         
-        <nav className="flex-1 p-4 overflow-y-auto">
+        <nav className="flex-1 px-4 py-4 overflow-y-auto">
           <ul className="space-y-2">
             {navItems.map((item) => (
               <li key={item.path}>
                 <Link
                   to={item.path}
-                  className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} p-3 rounded-lg transition-colors ${
+                  className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start'} gap-3 p-3 rounded-lg transition-colors ${
                     location.pathname === item.path
                       ? 'bg-blue-50 text-blue-600'
                       : 'text-gray-600 hover:bg-gray-100'
@@ -75,29 +74,31 @@ const Navigation = () => {
                   onClick={() => {
                     if (isMobileMenuOpen) toggleMobileMenu();
                   }}
-                  title={isCollapsed ? item.name : ''}
+                  title={isCollapsed ? item.name : undefined}
                 >
-                  {item.icon}
-                  {!isCollapsed && <span className="font-medium">{item.name}</span>}
+                  <span className="flex-shrink-0">{item.icon}</span>
+                  {!isCollapsed && <span className="font-medium truncate">{item.name}</span>}
                 </Link>
               </li>
             ))}
           </ul>
         </nav>
         
-        <div className={`p-4 border-t border-gray-200 ${isCollapsed ? 'flex justify-center' : ''}`}>
+        <div className="p-4 border-t border-gray-200">
           {isCollapsed ? (
-            <div className="bg-blue-500 text-white rounded-full h-10 w-10 flex items-center justify-center font-bold">
-              JD
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 p-3">
+            <div className="flex justify-center">
               <div className="bg-blue-500 text-white rounded-full h-10 w-10 flex items-center justify-center font-bold">
                 JD
               </div>
-              <div>
-                <p className="font-medium text-gray-800">John Doe</p>
-                <p className="text-sm text-gray-500">Administrator</p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 p-2">
+              <div className="bg-blue-500 text-white rounded-full h-10 w-10 flex-shrink-0 flex items-center justify-center font-bold">
+                JD
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-gray-800 truncate">John Doe</p>
+                <p className="text-sm text-gray-500 truncate">Administrator</p>
               </div>
             </div>
           )}
@@ -114,7 +115,7 @@ const Navigation = () => {
             <FiChevronLeft className="h-4 w-4" />
           }
         </button>
-      </div>
+      </aside>
     </>
   );
 };

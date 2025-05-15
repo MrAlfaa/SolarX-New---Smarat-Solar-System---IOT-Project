@@ -3,11 +3,13 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 interface SidebarContextType {
   isCollapsed: boolean;
   toggleSidebar: () => void;
+  setCollapsed: (collapsed: boolean) => void;
 }
 
 const SidebarContext = createContext<SidebarContextType>({
   isCollapsed: false,
   toggleSidebar: () => {},
+  setCollapsed: () => {},
 });
 
 export const useSidebar = () => useContext(SidebarContext);
@@ -20,6 +22,8 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const handleResize = () => {
       if (window.innerWidth < 1024) {
         setIsCollapsed(true);
+      } else {
+        setIsCollapsed(false);
       }
     };
     
@@ -34,8 +38,12 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIsCollapsed(!isCollapsed);
   };
 
+  const setCollapsed = (collapsed: boolean) => {
+    setIsCollapsed(collapsed);
+  };
+
   return (
-    <SidebarContext.Provider value={{ isCollapsed, toggleSidebar }}>
+    <SidebarContext.Provider value={{ isCollapsed, toggleSidebar, setCollapsed }}>
       {children}
     </SidebarContext.Provider>
   );

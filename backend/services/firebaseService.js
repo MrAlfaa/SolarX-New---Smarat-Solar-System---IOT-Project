@@ -30,7 +30,6 @@ class FirebaseService {
     }
   }
 
-
   static async updateBatteryStatus(percentage = null, voltage = null) {
     try {
       const ref = db.ref('status/battery');
@@ -50,35 +49,50 @@ class FirebaseService {
     }
   }
 
-
-  // Add to your existing FirebaseService class
-
-static async getBatteryStatus() {
-  try {
-    const snapshot = await db.ref('status/battery').once('value');
-    return snapshot.val();
-  } catch (error) {
-    console.error('Error getting battery status:', error);
-    throw error;
+  static async getBatteryStatus() {
+    try {
+      const snapshot = await db.ref('status/battery').once('value');
+      return snapshot.val();
+    } catch (error) {
+      console.error('Error getting battery status:', error);
+      throw error;
+    }
   }
-}
 
-static async getSystemAlerts(limit = 5) {
-  try {
-    const snapshot = await db.ref('alerts')
-      .orderByChild('timestamp')
-      .limitToLast(limit)
-      .once('value');
-    return snapshot.val();
-  } catch (error) {
-    console.error('Error getting alerts:', error);
-    throw error;
+  static async getSystemAlerts(limit = 5) {
+    try {
+      const snapshot = await db.ref('alerts')
+        .orderByChild('timestamp')
+        .limitToLast(limit)
+        .once('value');
+      return snapshot.val();
+    } catch (error) {
+      console.error('Error getting alerts:', error);
+      throw error;
+    }
   }
-}
   
+  static async getNightModeStatus() {
+    try {
+      const snapshot = await db.ref('status/Night/Mode').once('value');
+      return snapshot.val();
+    } catch (error) {
+      console.error('Error getting night mode status:', error);
+      return false;
+    }
+  }
 
-
+  static async updateNightMode(isNightMode) {
+    try {
+      const ref = db.ref('status/Night/Mode');
+      await ref.set(isNightMode);
+      console.log(`Night mode updated: ${isNightMode}`);
+      return true;
+    } catch (error) {
+      console.error('Firebase night mode update error:', error);
+      return false;
+    }
+  }
 }
 
- 
-module.exports = FirebaseService;
+module.exports = FirebaseService;module.exports = FirebaseService;
