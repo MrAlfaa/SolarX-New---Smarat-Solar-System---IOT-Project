@@ -1,3 +1,4 @@
+console.log('Loading BatteryModel module...');
 const pool = require('../config/db');
 
 class BatteryModel {
@@ -70,6 +71,22 @@ class BatteryModel {
       throw error;
     }
   }
+  
+  static async getDataForPeriod(days = 7) {
+    try {
+      const [rows] = await pool.query(`
+        SELECT * FROM battery_data 
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        ORDER BY created_at ASC
+      `, [days]);
+      return rows;
+    } catch (error) {
+      console.error('Error fetching battery data for period:', error);
+      throw error;
+    }
+  }
 }
+
+module.exports = BatteryModel;
 
 module.exports = BatteryModel;

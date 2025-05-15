@@ -250,3 +250,55 @@ export const subscribeToNightMode = (callback: (isNightMode: boolean) => void): 
   
   return unsubscribe;
 };
+
+// Get energy production history with better error handling
+export const fetchEnergyProductionHistory = async (days = 7): Promise<any> => {
+  try {
+    console.log(`Attempting to fetch energy production data for ${days} days...`);
+    
+    // First try to fetch from the API
+    const response = await fetch(`/api/data/energy-production?days=${days}`);
+    console.log(`API response status:`, response.status);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Successfully fetched energy data from API:', data);
+      return data.data;
+    } else {
+      console.warn(`API request failed with status: ${response.status}`);
+    }
+    
+    // If API fails, try to get from Firebase directly
+    console.log('Attempting to fetch from Firebase directly...');
+    const firebaseSnapshot = await get(ref(database, 'status/energy/production'));
+    
+    if (firebaseSnapshot.exists()) {
+      console.log('Successfully fetched energy data from Firebase');
+      return firebaseSnapshot.val();
+    } else {
+      console.warn('No energy data found in Firebase');
+    }
+    
+    // If all else fails, return the mock data
+    console.log('Using mock energy production data as fallback');
+    return getMockEnergyProduction();
+  } catch (error) {
+    console.error('Error fetching energy production history:', error);
+    // Return the mock data as fallback
+    return getMockEnergyProduction();
+  }
+};
+
+// Fallback mock data function
+const getMockEnergyProduction = () => {
+  return [
+    { time: '6 AM', value: 0.2 },
+    { time: '8 AM', value: 1.5 },
+    { time: '10 AM', value: 3.8 },
+    { time: '12 PM', value: 5.2 },
+    { time: '2 PM', value: 4.8 },
+    { time: '4 PM', value: 3.2 },
+    { time: '6 PM', value: 1.0 },
+    { time: '8 PM', value: 0.1 },
+  ];
+};

@@ -242,7 +242,58 @@ app.post('/api/data/nightmode', async (req, res) => {
   }
 });
 
+// Add this at the start of your endpoints section for debugging
+app.use((req, res, next) => {
+  console.log(`📡 ${req.method} request received for ${req.url}`);
+  next();
+});
+
+// Add this endpoint with enhanced logging
+app.get('/api/data/energy-production', async (req, res) => {
+  console.log('🔍 Received request for energy production data');
+  try {
+    const { days = 7 } = req.query;
+    console.log(`📊 Fetching energy production data for ${days} days`);
+    
+    const data = await DatabaseService.getEnergyProductionHistory(parseInt(days));
+    console.log(`✅ Successfully calculated energy production data`);
+    
+    res.json({
+      success: true,
+      data: data,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error fetching energy production data:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   initializeServices();
+
+  // Make sure this function is available immediately when the application starts
+  const calculateAndStoreEnergyProduction = async () => {
+    try {
+      const days = 7; // Get data for the last 7 days
+      const energyData = await DatabaseService.getEnergyProductionHistory(days);
+  
+      // Store in Firebase for quick access from the frontend
+      await FirebaseService.storeEnergyProduction(energyData);
+  
+      console.log('Energy production calculation completed and stored');
+    } catch (error) {
+      console.error('Error in energy production calculation task:', error);
+    }
+  };
+
+  // Run immediately at startup
+  calculateAndStoreEnergyProduction();
+
+  // Then schedule to run every hour
+  setInterval(calculateAndStoreEnergyProduction, 60 * 60 * 1000);
 });
