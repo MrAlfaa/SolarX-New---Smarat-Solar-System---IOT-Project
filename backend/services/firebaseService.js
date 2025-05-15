@@ -1,10 +1,12 @@
   const admin = require('firebase-admin');
   const serviceAccount = require('../serviceAccountKey.json');
 
+
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
     databaseURL: "https://sqa-assignment-default-rtdb.firebaseio.com/"
   });
+
 
   const db = admin.database();
 
@@ -214,4 +216,35 @@
     }
   }
 
-  module.exports = FirebaseService;
+
+  static async storeEnergyProduction(hourlyProduction) {
+    try {
+      const ref = db.ref('status/energy/production');
+      await ref.set(hourlyProduction);
+      console.log('Energy production data stored in Firebase');
+      return true;
+    } catch (error) {
+      console.error('Error storing energy production data:', error);
+      return false;
+    }
+  }
+  
+  static async getEnergyProductionHistory() {
+    try {
+      const snapshot = await db.ref('status/energy/production').once('value');
+      const energyData = snapshot.val();
+      
+      if (energyData) {
+        return energyData;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error getting energy production data:', error);
+      return null;
+    }
+  }
+}
+
+module.exports = FirebaseService;
+
